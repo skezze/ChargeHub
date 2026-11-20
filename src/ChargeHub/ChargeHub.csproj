@@ -12,7 +12,7 @@
     <ApplicationIcon>..\..\assets\ChargeHub.ico</ApplicationIcon>
     <AssemblyName>ChargeHub</AssemblyName>
     <RootNamespace>ChargeHub</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
