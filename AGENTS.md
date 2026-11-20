@@ -9,8 +9,8 @@ Windows 10 2004+ / 11 (x64) tray app, version in `src/ChargeHub/ChargeHub.csproj
 ## Map
 
 - `src/ChargeHub/`
-  - `Program.cs`: entry point. Single-instance mutex `Local\ChargeHub.Tray`. Flags: `--background` (autostart, no window), `--probe` (console dump, see `Probe.cs`).
-  - `TrayApp.cs`: wiring. Sources -> `BatteryMonitor` -> UI thread -> `TrayPlanner` -> `TrayIconHost`.
+  - `App/Program.cs`: entry point. Single-instance mutex `Local\ChargeHub.Tray`. Flags: `--background` (autostart, no window), `--probe` (console dump, see `Probe.cs`).
+  - `App/TrayApp.cs`: wiring. Sources -> `BatteryMonitor` -> UI thread -> `TrayPlanner` -> `TrayIconHost`.
   - `Core/` (no UI, mostly pure): `Device.cs` (`DeviceReading`, `Device`, `LinkStatus`, `Transport`), `DeviceBook.cs` (merge by id, last-known values), `BatteryMonitor.cs` (poll loop, debounce, source timeouts), `LowBatteryNotifier.cs`, `IBatterySource.cs`, `KnownDevices.cs` (stable ids and names).
   - `Sources/`: `BluetoothSource.cs` (BLE Battery Service), `BluetoothPnpBattery.cs` (`DEVPKEY_Bluetooth_Battery` via SetupAPI), `AsusGladiusSource.cs` + `AsusProtocol.cs` (packet encode/decode, no I/O), `HidInterface.cs` (HID device I/O).
   - `Tray/`: `TrayPlanner.cs` (pure: devices + settings -> wanted icons), `TrayIconHost.cs` (`NotifyIcon` lifecycle, `Sync`), `TrayIconRenderer.cs` (glyph bitmaps), `TrayMenu.cs` (classic right-click menu).
@@ -18,17 +18,17 @@ Windows 10 2004+ / 11 (x64) tray app, version in `src/ChargeHub/ChargeHub.csproj
   - `Settings/`: `AppSettings.cs` (model), `SettingsStore.cs` (JSON in `%LOCALAPPDATA%\ChargeHub\settings.json`), `StartupRegistration.cs` (HKCU Run key).
   - `Updates/`: `UpdateChecker.cs` (GitHub API), `UpdateService.cs` (daily schedule, notify once), `ReleaseInfo.cs`.
   - `Infrastructure/`: `AppInfo.cs` (name, repo `skezze/ChargeHub`, version), `Log.cs` (`chargehub.log`, rotates ~512 KB), `Strings.cs` (all localized UI text, EN + RU), `DiagnosticReport.cs`, `MessageWindow.cs` (hidden window for power and device-change messages).
-  - `app.manifest`, `Probe.cs`.
+  - `App/app.manifest`, `App/Probe.cs`.
 - `tests/ChargeHub.Tests/`: xUnit, one file per area. Covers everything that does not need hardware. Internals are visible via `InternalsVisibleTo`.
 - `installer/ChargeHub.iss`: Inno Setup 6 script. Installs the framework-dependent build and downloads/installs the .NET 10 Desktop Runtime only if `Microsoft.WindowsDesktop.App\10.*` is missing.
-- `build.ps1`: test, publish (`-SelfContained` optional), `-Installer` builds the setup exe. `-SkipTests` skips tests.
+- `scripts/build.ps1`: test, publish (`-SelfContained` optional), `-Installer` builds the setup exe. `-SkipTests` skips tests.
 - `.github/workflows/build.yml`: every push and PR to `main`, builds the installer. `release.yml`: on tag `v*`, checks tag == `<Version>`, publishes setup exe and portable zip.
 - `assets/ChargeHub.ico`: app and installer icon.
 
 ## Commands
 
 - Test: `dotnet test ChargeHub.sln -c Release`
-- Build + tests + installer: `powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 -Installer` (output in `artifacts/`)
+- Build + tests + installer: `powershell -NoProfile -ExecutionPolicy Bypass -File scriptsuild.ps1 -Installer` (output in `artifacts/`)
 - Quick app build: `dotnet build src/ChargeHub/ChargeHub.csproj`
 
 ## Conventions
@@ -46,6 +46,6 @@ Windows 10 2004+ / 11 (x64) tray app, version in `src/ChargeHub/ChargeHub.csproj
 - ASUS protocol: only the read-only battery query (`00 12 07`) may be sent. Never add writes (DPI, RGB, firmware, profiles).
 - Do not read, print or commit `settings.json` or `chargehub.log`. They contain local Bluetooth addresses. Diagnostics without ids come from `DiagnosticReport.Build(..., includeIds: false)`.
 - Ignore generated folders: `bin/`, `obj/`, `artifacts/`, `.vs/`, `tests/**/bin|obj`.
-- A running ChargeHub (from `artifacts/win-x64`) locks its DLLs, so `build.ps1` fails at the cleanup step. Ask the user to exit it from the tray first. Do not kill it silently.
+- A running ChargeHub (from `artifacts/win-x64`) locks its DLLs, so `scripts/build.ps1` fails at the cleanup step. Ask the user to exit it from the tray first. Do not kill it silently.
 - Hardware behaviour (real mice, dongles, drivers) cannot be tested here. Say so instead of claiming it works.
 - From Git Bash, pass Inno Setup switches with `MSYS_NO_PATHCONV=1`, otherwise `/D...` gets rewritten as a path.

@@ -1,7 +1,7 @@
 name: Release
 
 # Publishes a GitHub release when a version tag is pushed:
-#   git tag v0.3.0 && git push origin v0.3.0
+#   git tag vX.Y.Z && git push origin vX.Y.Z
 # The tag must match <Version> in src/ChargeHub/ChargeHub.csproj. The app's daily update check
 # reads the latest release created here.
 on:
@@ -33,7 +33,7 @@ jobs:
       - name: Test, build installer and portable zip
         shell: pwsh
         run: |
-          ./build.ps1 -Installer
+          ./scripts/build.ps1 -Installer
           Compress-Archive -Path artifacts/win-x64/* -DestinationPath "ChargeHub-$env:GITHUB_REF_NAME-win-x64-portable.zip"
 
       - name: Create the release

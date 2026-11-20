@@ -18,8 +18,9 @@ jobs:
         run: choco install innosetup --no-progress -y
       - name: Test and build installer
         shell: pwsh
-        run: ./build.ps1 -Installer
+        run: ./scripts/build.ps1 -Installer
       - uses: actions/upload-artifact@v4
         with:
           name: ChargeHub-setup
           path: artifacts/installer/
+          if-no-files-found: error

@@ -61,8 +61,7 @@ src/ChargeHub
 ├── Ui/          PaintedForm (custom painting, hit-testing, scrolling), FlyoutWindow (tray panel), MainWindow (Devices / Settings / About), Theme
 ├── Updates/     UpdateChecker (GitHub releases API), UpdateService (daily schedule, notify once)
 ├── Infrastructure/  logging, localized strings, hidden message window
-├── TrayApp.cs   wiring: sources → monitor → UI thread → planner → tray host
-└── Program.cs   single-instance entry point
+└── App/         Program.cs (single-instance entry point, --probe), TrayApp.cs (wiring: sources → monitor → UI thread → planner → tray host), app.manifest
 tests/ChargeHub.Tests   xUnit tests for everything that does not need hardware
 ```
 
@@ -83,16 +82,16 @@ Implement `IBatterySource` (return a `DeviceReading` per device using the `Conne
 ## Build
 
 ```powershell
-./build.ps1                 # run tests, publish framework-dependent build to artifacts/win-x64
-./build.ps1 -Installer      # the same, plus artifacts/installer/ChargeHub-<version>-setup.exe (needs Inno Setup 6)
+./scripts/build.ps1             # run tests, publish framework-dependent build to artifacts/win-x64
+./scripts/build.ps1 -Installer  # the same, plus artifacts/installer/ChargeHub-<version>-setup.exe (needs Inno Setup 6)
 ```
 
 GitHub Actions builds every push to `main` and pull request (`build.yml`). Pushing a version tag publishes a release (`release.yml`):
 
 ```powershell
 # 1. bump <Version> in src/ChargeHub/ChargeHub.csproj and commit
-git tag v0.3.0
-git push origin v0.3.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 The workflow checks that the tag matches `<Version>`, runs the tests and attaches two files to the release: `ChargeHub-<version>-setup.exe` (installer, about 6 MB, installs the .NET 10 Desktop Runtime when it is missing) and a portable zip that needs the runtime already installed. Release notes are generated from the commits. The repository the app checks is `AppInfo.Repository`.

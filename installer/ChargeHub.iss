@@ -1,4 +1,4 @@
-; ChargeHub installer (Inno Setup 6.3+). Build with: ./build.ps1 -Installer
+; ChargeHub installer (Inno Setup 6.3+). Build with: ./scripts/build.ps1 -Installer
 ; The app is packaged framework-dependent. If the .NET 10 Desktop Runtime is missing,
 ; the installer downloads the official Microsoft runtime and installs it silently.
 

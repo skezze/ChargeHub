@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationManifest>App\app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\assets\ChargeHub.ico</ApplicationIcon>
     <AssemblyName>ChargeHub</AssemblyName>
     <RootNamespace>ChargeHub</RootNamespace>

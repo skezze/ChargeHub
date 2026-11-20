@@ -4,7 +4,8 @@ param(
     [switch]$Installer
 )
 $ErrorActionPreference = 'Stop'
-Set-Location $PSScriptRoot
+$root = Split-Path -Parent $PSScriptRoot
+Set-Location $root
 
 if ($Installer -and $SelfContained) { throw 'The installer packages the framework-dependent build; do not combine -Installer with -SelfContained' }
 
@@ -13,7 +14,7 @@ if (-not $SkipTests) {
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
 }
 
-$destination = Join-Path $PSScriptRoot 'artifacts\win-x64'
+$destination = Join-Path $root 'artifacts\win-x64'
 if (Test-Path $destination) { Remove-Item $destination -Recurse -Force }
 
 dotnet publish src/ChargeHub/ChargeHub.csproj -c Release -r win-x64 `
@@ -35,5 +36,5 @@ if ($Installer) {
 
     & $iscc "/DAppVersion=$version" installer\ChargeHub.iss
     if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
-    Write-Host "Ready: $PSScriptRoot\artifacts\installer\ChargeHub-$version-setup.exe"
+    Write-Host "Ready: $root\artifacts\installer\ChargeHub-$version-setup.exe"
 }
