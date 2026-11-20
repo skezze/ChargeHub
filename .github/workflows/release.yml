@@ -1,0 +1,43 @@
+name: Release
+
+# Publishes a GitHub release when a version tag is pushed:
+#   git tag v0.3.0 && git push origin v0.3.0
+# The tag must match <Version> in src/ChargeHub/ChargeHub.csproj. The app's daily update check
+# reads the latest release created here.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check that the tag matches the project version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content src/ChargeHub/ChargeHub.csproj)).Project.PropertyGroup.Version | Where-Object { $_ }
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match project version $version" }
+
+      - name: Build and package
+        shell: pwsh
+        run: |
+          ./build.ps1
+          Compress-Archive -Path artifacts/win-x64/* -DestinationPath "ChargeHub-$env:GITHUB_REF_NAME-win-x64-framework-dependent.zip"
+          ./build.ps1 -SkipTests -SelfContained
+          Compress-Archive -Path artifacts/win-x64/* -DestinationPath "ChargeHub-$env:GITHUB_REF_NAME-win-x64.zip"
+
+      - name: Create the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $files = (Get-ChildItem -Filter 'ChargeHub-*.zip').FullName
+          gh release create $env:GITHUB_REF_NAME @files --title "ChargeHub $env:GITHUB_REF_NAME" --generate-notes
