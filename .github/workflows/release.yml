@@ -26,18 +26,20 @@ jobs:
           $version = ([xml](Get-Content src/ChargeHub/ChargeHub.csproj)).Project.PropertyGroup.Version | Where-Object { $_ }
           if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match project version $version" }
 
-      - name: Build and package
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Test, build installer and portable zip
         shell: pwsh
         run: |
-          ./build.ps1
-          Compress-Archive -Path artifacts/win-x64/* -DestinationPath "ChargeHub-$env:GITHUB_REF_NAME-win-x64-framework-dependent.zip"
-          ./build.ps1 -SkipTests -SelfContained
-          Compress-Archive -Path artifacts/win-x64/* -DestinationPath "ChargeHub-$env:GITHUB_REF_NAME-win-x64.zip"
+          ./build.ps1 -Installer
+          Compress-Archive -Path artifacts/win-x64/* -DestinationPath "ChargeHub-$env:GITHUB_REF_NAME-win-x64-portable.zip"
 
       - name: Create the release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $files = (Get-ChildItem -Filter 'ChargeHub-*.zip').FullName
+          $files = @((Get-ChildItem -Filter 'ChargeHub-*.zip').FullName) + @((Get-ChildItem artifacts/installer -Filter '*.exe').FullName)
           gh release create $env:GITHUB_REF_NAME @files --title "ChargeHub $env:GITHUB_REF_NAME" --generate-notes

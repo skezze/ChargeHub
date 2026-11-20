@@ -31,7 +31,7 @@ Low battery notifications fire once per discharge cycle, only for devices shown 
 
 Windows may place new tray icons under the `^` overflow arrow; drag them out or enable them in *Settings → Personalization → Taskbar → Other system tray icons*.
 
-Requirements: Windows 10 2004+ / Windows 11, x64, and the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (not needed for the self-contained build from CI).
+Requirements: Windows 10 2004+ / Windows 11, x64. The installer checks for the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) and, if it is missing, downloads and installs it from Microsoft (needs administrator rights and an internet connection). The portable zip does not install it, so the runtime must already be present.
 
 ## Updates
 
@@ -84,7 +84,7 @@ Implement `IBatterySource` (return a `DeviceReading` per device using the `Conne
 
 ```powershell
 ./build.ps1                 # run tests, publish framework-dependent build to artifacts/win-x64
-./build.ps1 -SelfContained  # include the .NET runtime
+./build.ps1 -Installer      # the same, plus artifacts/installer/ChargeHub-<version>-setup.exe (needs Inno Setup 6)
 ```
 
 GitHub Actions builds every push to `main` and pull request (`build.yml`). Pushing a version tag publishes a release (`release.yml`):
@@ -95,7 +95,9 @@ git tag v0.3.0
 git push origin v0.3.0
 ```
 
-The workflow checks that the tag matches `<Version>`, runs the tests and attaches two zips to the release: self-contained (no .NET install needed) and framework-dependent (small, needs the .NET 10 Desktop Runtime). Release notes are generated from the commits. The repository the app checks is `AppInfo.Repository`.
+The workflow checks that the tag matches `<Version>`, runs the tests and attaches two files to the release: `ChargeHub-<version>-setup.exe` (installer, about 6 MB, installs the .NET 10 Desktop Runtime when it is missing) and a portable zip that needs the runtime already installed. Release notes are generated from the commits. The repository the app checks is `AppInfo.Repository`.
+
+The installer is `installer/ChargeHub.iss` (Inno Setup 6). It is not signed, so Windows SmartScreen may warn on first run.
 
 ### Diagnostics
 
