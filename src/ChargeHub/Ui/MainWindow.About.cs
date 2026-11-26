@@ -88,7 +88,7 @@ internal sealed partial class MainWindow
                 () => _ = updates.CheckNowAsync(), scrolls: true, onCard: true);
             if (release is not null && actionLabel is not null)
                 AddButton(new Rectangle(buttonRight - buttonsWidth, buttonTop, actionWidth - S(8), S(40)), "\uE896", () => actionLabel,
-                    () => { if (asset is null) OpenUrl(release.PageUrl); else _ = InstallUpdateAsync(asset); }, scrolls: true, onCard: true);
+                    () => { if (asset is null) OpenUrl(release.PageUrl); else _ = InstallUpdateAsync(asset, release.PageUrl); }, scrolls: true, onCard: true);
         }
         y += updateHeight + gap;
 
@@ -142,7 +142,7 @@ internal sealed partial class MainWindow
         catch (Exception e) when (e is Win32Exception or InvalidOperationException) { Log.Error("Could not open the release page", e); }
     }
 
-    async Task InstallUpdateAsync(InstallerAsset asset)
+    async Task InstallUpdateAsync(InstallerAsset asset, string releasePage)
     {
         if (installingUpdate) return;
         var cancellation = updateCancellation.Token;
@@ -158,7 +158,9 @@ internal sealed partial class MainWindow
         {
             if (cancellation.IsCancellationRequested || e is Win32Exception { NativeErrorCode: 1223 }) return;
             Log.Error("Installing the update failed", e);
-            MessageBox.Show(this, Strings.InstallUpdateFailed, AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            if (MessageBox.Show(this, Strings.InstallUpdateFailed, AppInfo.Name, MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+                OpenUrl(releasePage);
         }
         finally
         {

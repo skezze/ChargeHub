@@ -120,8 +120,8 @@ internal static class Strings
     public static string DownloadUpdate => L("Download", "Скачать");
     public static string InstallUpdate => L("Install", "Установить");
     public static string InstallingUpdate => L("Downloading update…", "Загрузка обновления…");
-    public static string InstallUpdateFailed => L("Could not start the update. Try again or download the installer from GitHub Releases.",
-        "Не удалось запустить обновление. Попробуйте снова или скачайте установщик на GitHub Releases.");
+    public static string InstallUpdateFailed => L("Could not start the update. Open the release page to download the installer manually?",
+        "Не удалось запустить обновление. Открыть страницу релиза, чтобы скачать установщик вручную?");
     public static string UpdateAvailableTitle => L("Update available", "Доступно обновление");
     public static string UpdateAvailableText(Version version) =>
         L($"ChargeHub {version.ToString(3)} is out. Open About to update.", $"Вышла версия ChargeHub {version.ToString(3)}. Обновиться можно в разделе «О программе».");
