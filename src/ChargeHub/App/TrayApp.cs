@@ -54,7 +54,7 @@ internal sealed class TrayApp : ApplicationContext
 
         menu.SettingsChanged += OnSettingsChanged;
         menu.OpenRequested += ShowMainWindow;
-        menu.UpdateRequested += () => { if (updates.Available is { } release) MainWindow.OpenRelease(release); };
+        menu.UpdateRequested += () => { flyout.Hide(); main.ShowAbout(); };
         menu.RefreshRequested += () => monitor.RequestRefresh();
         menu.ExitRequested += ExitThread;
         window.HardwareChanged += () => monitor.RequestRefresh();

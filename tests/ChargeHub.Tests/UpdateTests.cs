@@ -63,6 +63,24 @@ public class UpdateTests
         Assert.Null(UpdateChecker.Parse("[]"));
     }
 
+    [Theory]
+    [InlineData("o/r", "sha256", 123, true)]
+    [InlineData("other/r", "sha256", 123, false)]
+    [InlineData("o/r", "sha512", 123, false)]
+    [InlineData("o/r", "sha256", 0, false)]
+    public void Installer_requires_the_exact_release_url_and_valid_metadata(string repository, string algorithm, int size, bool accepted)
+    {
+        var json = $$"""
+            { "tag_name": "v0.4.0", "html_url": "https://github.com/o/r/releases/tag/v0.4.0",
+              "assets": [{ "browser_download_url": "https://github.com/{{repository}}/releases/download/v0.4.0/ChargeHub-0.4.0-setup.exe",
+                "digest": "{{algorithm}}:{{new string('a', 64)}}", "size": {{size}} }] }
+            """;
+        var release = UpdateChecker.Parse(json, "o/r");
+        Assert.NotNull(release);
+        Assert.Equal(accepted, release.Installer is not null);
+        if (accepted) Assert.Equal(size, release.Installer!.Size);
+    }
+
     [Fact]
     public async Task Newer_release_is_reported()
     {

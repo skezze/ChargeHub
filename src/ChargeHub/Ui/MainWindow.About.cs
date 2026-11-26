@@ -9,6 +9,8 @@ internal sealed partial class MainWindow
 {
     System.Windows.Forms.Timer? copiedTimer;
     bool copied;
+    bool installingUpdate;
+    readonly CancellationTokenSource updateCancellation = new();
 
     void InitializeAbout()
     {
@@ -21,7 +23,19 @@ internal sealed partial class MainWindow
         };
     }
 
-    void DisposeAbout() => copiedTimer?.Dispose();
+    void DisposeAbout()
+    {
+        copiedTimer?.Dispose();
+        updateCancellation.Cancel();
+        updateCancellation.Dispose();
+    }
+
+    public void ShowAbout()
+    {
+        page = Page.About;
+        ShowWindow();
+        RefreshContent();
+    }
 
     int BuildAbout(int x, int width)
     {
@@ -46,23 +60,35 @@ internal sealed partial class MainWindow
 
         // updates
         int updateHeight = S(76);
+        string? actionLabel = null;
+        InstallerAsset? asset = null;
+        var release = updates.Status == UpdateStatus.Available ? updates.Available : null;
+        if (!installingUpdate && release is not null)
+        {
+            asset = release.Installer is not null && InstallerUpdate.IsInstalledCopy() ? release.Installer : null;
+            actionLabel = asset is null ? Strings.DownloadUpdate : Strings.InstallUpdate;
+        }
+        int checkWidth = ButtonWidth(Strings.CheckNow);
+        int actionWidth = actionLabel is null ? 0 : ButtonWidth(actionLabel) + S(8);
+        int buttonsWidth = installingUpdate ? 0 : checkWidth + actionWidth;
         Visuals.Add(new Visual(new Rectangle(x, y, width, updateHeight), true, (g, r, _) =>
         {
             FillRound(g, Theme.Card, r, S(8));
             bool available = updates.Status == UpdateStatus.Available;
             DrawText(g, Strings.UpdatesTitle, NameFont, new Rectangle(r.X + pad, r.Y + S(14), S(300), S(22)), Theme.Text);
-            var status = Strings.UpdateStatusText(updates.Status, updates.Available, settings.LastUpdateCheck, settings.CheckForUpdates);
-            DrawText(g, status, BodyFont, new Rectangle(r.X + pad, r.Y + S(38), r.Width - pad * 2 - S(330), S(24)), available ? Theme.Accent : Theme.Muted);
+            var status = installingUpdate ? Strings.InstallingUpdate :
+                Strings.UpdateStatusText(updates.Status, updates.Available, settings.LastUpdateCheck, settings.CheckForUpdates);
+            DrawText(g, status, BodyFont, new Rectangle(r.X + pad, r.Y + S(38), Math.Max(0, r.Width - pad * 2 - buttonsWidth), S(24)), available ? Theme.Accent : Theme.Muted);
         }));
-        int buttonRight = x + width - S(16), checkWidth = ButtonWidth(Strings.CheckNow);
+        int buttonRight = x + width - S(16);
         int buttonTop = y + (updateHeight - S(40)) / 2;
-        AddButton(new Rectangle(buttonRight - checkWidth, buttonTop, checkWidth, S(40)), "\uE895", () => Strings.CheckNow,
-            () => _ = updates.CheckNowAsync(), scrolls: true, onCard: true);
-        if (updates.Available is { } release && updates.Status == UpdateStatus.Available)
+        if (!installingUpdate)
         {
-            int downloadWidth = ButtonWidth(Strings.DownloadUpdate);
-            AddButton(new Rectangle(buttonRight - checkWidth - S(8) - downloadWidth, buttonTop, downloadWidth, S(40)), "\uE896", () => Strings.DownloadUpdate,
-                () => OpenUrl(release.PageUrl), scrolls: true, onCard: true);
+            AddButton(new Rectangle(buttonRight - checkWidth, buttonTop, checkWidth, S(40)), "\uE895", () => Strings.CheckNow,
+                () => _ = updates.CheckNowAsync(), scrolls: true, onCard: true);
+            if (release is not null && actionLabel is not null)
+                AddButton(new Rectangle(buttonRight - buttonsWidth, buttonTop, actionWidth - S(8), S(40)), "\uE896", () => actionLabel,
+                    () => { if (asset is null) OpenUrl(release.PageUrl); else _ = InstallUpdateAsync(asset); }, scrolls: true, onCard: true);
         }
         y += updateHeight + gap;
 
@@ -116,8 +142,30 @@ internal sealed partial class MainWindow
         catch (Exception e) when (e is Win32Exception or InvalidOperationException) { Log.Error("Could not open the release page", e); }
     }
 
-    /// <summary>Opens the release page of a found update (also used by the tray menu).</summary>
-    public static void OpenRelease(ReleaseInfo release) => OpenUrl(release.PageUrl);
+    async Task InstallUpdateAsync(InstallerAsset asset)
+    {
+        if (installingUpdate) return;
+        var cancellation = updateCancellation.Token;
+        installingUpdate = true;
+        RefreshContent();
+        try
+        {
+            await InstallerUpdate.DownloadAndLaunchAsync(asset, cancellation);
+            ExitRequested?.Invoke();
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or HttpRequestException or
+            OperationCanceledException or Win32Exception or InvalidOperationException)
+        {
+            if (cancellation.IsCancellationRequested || e is Win32Exception { NativeErrorCode: 1223 }) return;
+            Log.Error("Installing the update failed", e);
+            MessageBox.Show(this, Strings.InstallUpdateFailed, AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            installingUpdate = false;
+            if (!IsDisposed) RefreshContent();
+        }
+    }
 
     static void Open(string path)
     {

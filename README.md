@@ -4,7 +4,7 @@ A tiny Windows tray utility that shows the battery level of your connected devic
 
 - **Bluetooth** devices: headphones, gamepads, keyboards, mice (Classic and LE).
 - **2.4 GHz dongle / USB** devices: ASUS ROG Gladius III Wireless AimPoint (original receiver `0B05:1A72`, cable `0B05:1A70`).
-- No telemetry, no cloud, no third-party runtime dependencies. C# / .NET 10, WinForms `NotifyIcon` and native Windows APIs only. The only network request is the once-a-day update check (see [Updates](#updates)).
+- No telemetry, no cloud, no third-party runtime dependencies. C# / .NET 10, WinForms `NotifyIcon` and native Windows APIs only. Network access is limited to update checks and installer downloads you initiate (see [Updates](#updates)).
 
 ## Use
 
@@ -13,7 +13,7 @@ Run `ChargeHub.exe`. The main window opens and a small battery icon appears in t
 - **Main window** (double-click the tray icon, or *Open ChargeHub* in the panel or menu), light/dark theme and accent colour follow Windows:
   - **Devices**: cards for connected and not connected devices with level, progress bar and an **In tray** switch (click a card to toggle it).
   - **Settings**: hide icons of disconnected devices, low battery notifications and threshold, start with Windows, daily update check, refresh interval (30 s – 5 min), language (Auto / English / Русский).
-  - **About**: version, update status with *Check for updates* / *Download*, open the data folder or log, copy a diagnostic report (no device addresses), privacy note.
+  - **About**: version, update status with *Check for updates* / *Install* (or *Download* for portable copies), open the data folder or log, copy a diagnostic report (no device addresses), privacy note.
 - **Left-click** the icon: a Windows 11-style panel opens above the tray (light/dark theme and accent colour follow Windows). Every device is a card with its level, a progress bar and an **In tray** switch. Switch it on to get a dedicated tray icon with the percentage; switch it off and that icon is removed immediately. The panel also holds the settings and **Exit**. It closes when you click elsewhere or press `Esc`.
 - **Right-click** the icon: the same actions as a classic context menu.
 
@@ -35,7 +35,7 @@ Requirements: Windows 10 2004+ / Windows 11, x64. The installer checks for the [
 
 ## Updates
 
-Once a day (and shortly after start, if the last check is older than 24 h) ChargeHub asks `api.github.com/repos/<owner>/<repo>/releases/latest` whether a newer release exists. If so, you get one notification, an *Update available* item in the tray menu and a *Download* button in *About* that opens the release page. Nothing is downloaded or installed automatically, and no data is sent besides the standard `User-Agent` header. Turn it off in *Settings*; *About → Check for updates* works either way. Drafts and pre-releases are ignored.
+Once a day (and shortly after start, if the last check is older than 24 h) ChargeHub asks `api.github.com/repos/<owner>/<repo>/releases/latest` whether a newer release exists. If so, you get one notification, an *Update available* item in the tray menu that opens *About*. For an installed copy, click *Install* to download the official setup, verify its SHA-256 against GitHub's release metadata, and restart ChargeHub after installation. Windows may show a UAC prompt. Portable copies and releases without a verifiable installer use *Download* to open the release page instead. Nothing is installed without your action. Turn it off in *Settings*; *About → Check for updates* works either way. Drafts and pre-releases are ignored.
 
 ## How states are handled
 

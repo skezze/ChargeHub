@@ -102,8 +102,8 @@ internal static class Strings
     public static string CopyReport => L("Copy diagnostics", "Копировать диагностику");
     public static string Copied => L("Copied", "Скопировано");
     public static string PrivacyNote => L(
-        "ChargeHub reads batteries locally and sends no telemetry. Its only network request is a once-a-day check of the public GitHub releases page, which you can turn off in Settings. The diagnostic report contains no device addresses.",
-        "ChargeHub читает заряд локально и не отправляет телеметрию. Единственный сетевой запрос — проверка публичных релизов на GitHub раз в сутки; её можно выключить в настройках. Диагностика не содержит адресов устройств.");
+        "ChargeHub reads batteries locally and sends no telemetry. It contacts GitHub to check for updates and to download an installer when you click Install. You can turn off daily checks in Settings. The diagnostic report contains no device addresses.",
+        "ChargeHub читает заряд локально и не отправляет телеметрию. Приложение обращается к GitHub для проверки обновлений и скачивает установщик только по кнопке «Установить». Ежедневную проверку можно выключить в настройках. Диагностика не содержит адресов устройств.");
     public static string Disclaimer => L(
         "ASUS and ROG are trademarks of ASUSTeK Computer Inc. ChargeHub is an independent project and is not affiliated with or endorsed by ASUS.",
         "ASUS и ROG — торговые марки ASUSTeK Computer Inc. ChargeHub — независимый проект, не связанный с ASUS и не одобренный ею.");
@@ -118,9 +118,13 @@ internal static class Strings
     public static string UpdatesTitle => L("Updates", "Обновления");
     public static string CheckNow => L("Check for updates", "Проверить обновления");
     public static string DownloadUpdate => L("Download", "Скачать");
+    public static string InstallUpdate => L("Install", "Установить");
+    public static string InstallingUpdate => L("Downloading update…", "Загрузка обновления…");
+    public static string InstallUpdateFailed => L("Could not start the update. Try again or download the installer from GitHub Releases.",
+        "Не удалось запустить обновление. Попробуйте снова или скачайте установщик на GitHub Releases.");
     public static string UpdateAvailableTitle => L("Update available", "Доступно обновление");
     public static string UpdateAvailableText(Version version) =>
-        L($"ChargeHub {version.ToString(3)} is out. Open About to download it.", $"Вышла версия ChargeHub {version.ToString(3)}. Скачать можно в разделе «О программе».");
+        L($"ChargeHub {version.ToString(3)} is out. Open About to update.", $"Вышла версия ChargeHub {version.ToString(3)}. Обновиться можно в разделе «О программе».");
     public static string MenuUpdate(Version version) => L($"Update available: {version.ToString(3)}…", $"Доступно обновление: {version.ToString(3)}…");
 
     public static string UpdateStatusText(Updates.UpdateStatus status, Updates.ReleaseInfo? release, DateTimeOffset? lastCheck, bool automatic) => status switch

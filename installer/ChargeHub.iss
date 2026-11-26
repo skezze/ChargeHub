@@ -36,8 +36,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.19041
 PrivilegesRequired=admin
-AppMutex=Local\ChargeHub.Tray
 CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -56,6 +56,7 @@ Name: "{autodesktop}\ChargeHub"; Filename: "{app}\ChargeHub.exe"; Tasks: desktop
 
 [Run]
 Filename: "{app}\ChargeHub.exe"; Description: "{cm:LaunchProgram,ChargeHub}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\ChargeHub.exe"; Parameters: "--background"; Flags: nowait runasoriginaluser; Check: IsInAppUpdate
 
 [Code]
 const
@@ -112,6 +113,46 @@ begin
   if not DesktopRuntimeInstalled then
     Result := Tr('The .NET 10 Desktop Runtime is still missing after its installation.',
       'После установки .NET 10 Desktop Runtime всё ещё не найден.') + ManualInstallHint;
+end;
+
+function OpenEvent(DesiredAccess: LongWord; InheritHandle: Boolean; Name: String): THandle;
+  external 'OpenEventW@kernel32.dll stdcall';
+function SetEvent(Event: THandle): Boolean;
+  external 'SetEvent@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+function IsInAppUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:ChargeHubUpdate|}') <> '';
+end;
+
+function InitializeSetup: Boolean;
+var
+  Attempt: Integer;
+  Ready: THandle;
+begin
+  if IsInAppUpdate then
+  begin
+    { Confirm that the elevated installer is ready before the app shuts down. }
+    Result := False;
+    Ready := OpenEvent(2, False, 'Local\ChargeHub.Update.' + ExpandConstant('{param:ChargeHubUpdate|}'));
+    if Ready = 0 then Exit;
+    try
+      if not SetEvent(Ready) then Exit;
+    finally
+      CloseHandle(Ready);
+    end;
+    for Attempt := 1 to 100 do
+    begin
+      if not CheckForMutexes('Local\ChargeHub.Tray') then Break;
+      Sleep(100);
+    end;
+  end;
+  Result := not CheckForMutexes('Local\ChargeHub.Tray');
+  if not Result then
+    SuppressibleMsgBox(Tr('Exit ChargeHub from the tray and try again.',
+      'Закройте ChargeHub через трей и попробуйте снова.'), mbError, MB_OK, IDOK);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
