@@ -71,7 +71,7 @@ Polling: one background loop, one poll at a time. It runs at the configured inte
 
 ### Adding a device
 
-Implement `IBatterySource` (return a `DeviceReading` per device using the `Connected` / `Asleep` / `Disconnected` / `Unavailable` factories), then add it to the list in `TrayApp`. Use the same id only for duplicate readings of the same device on the same transport. Bluetooth uses the normalized address when Windows provides it, and keeps Classic and LE entries separate.
+Implement `IBatterySource` (return a `DeviceReading` per device using the `Connected` / `Asleep` / `Disconnected` / `Unavailable` factories), then add it to the list in `TrayApp`. Use the same id for duplicate readings of one device. Bluetooth Classic and LE share an entry when Windows provides the same normalized address; USB and 2.4 GHz remain separate.
 
 ## Device notes
 

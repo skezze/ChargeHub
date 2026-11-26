@@ -19,9 +19,9 @@ internal sealed class BluetoothSource : IBatterySource, IDisposable
     static readonly string[] RequestedProperties = [ConnectedKey, AddressKey];
     static readonly TimeSpan GattTimeout = TimeSpan.FromSeconds(5);
 
-    sealed record Endpoint(string Id, string Name, string? Address, bool Connected, Transport Transport)
+    internal sealed record Endpoint(string Id, string Name, string? Address, bool Connected, Transport Transport)
     {
-        public string Key => $"bt:{Transport}:{Address ?? Id}";
+        public string Key => Address is not null ? $"bt:{Address}" : $"bt-id:{Transport}:{Id}";
     }
 
     sealed class WatcherTracker
@@ -101,7 +101,7 @@ internal sealed class BluetoothSource : IBatterySource, IDisposable
             ? await Task.Run(BluetoothPnpBattery.ReadAll, cancellation)
             : [];
 
-        // Deduplicate within a transport, not across Classic and LE.
+        // A shared address identifies one Bluetooth device, even when Windows exposes both Classic and LE.
         var devices = endpoints.GroupBy(e => e.Key).Select(group => ReadDeviceAsync(group.ToArray(), driverBatteries, cancellation));
         return await Task.WhenAll(devices);
     }
@@ -126,7 +126,7 @@ internal sealed class BluetoothSource : IBatterySource, IDisposable
 
     async Task<DeviceReading> ReadDeviceAsync(Endpoint[] group, Dictionary<(Transport, string), int> driverBatteries, CancellationToken cancellation)
     {
-        var connectedEndpoints = group.Where(e => e.Connected).ToArray();
+        var connectedEndpoints = group.Where(e => e.Connected).OrderBy(e => e.Transport).ToArray();
         var primary = connectedEndpoints.FirstOrDefault() ?? group[0];
         string name = group.Select(e => e.Name).FirstOrDefault(n => n != "Bluetooth device") ?? primary.Name;
         string id = primary.Key;
@@ -134,13 +134,16 @@ internal sealed class BluetoothSource : IBatterySource, IDisposable
         if (connectedEndpoints.Length == 0)
             return DeviceReading.Disconnected(id, name, primary.Transport);
 
-        int? percent = null;
-        if (primary.Address is not null && driverBatteries.TryGetValue((primary.Transport, primary.Address), out var level))
-            percent = level;
-        else if (primary.Transport == Transport.BluetoothLE)
-            percent = await ReadGattBatteryAsync(primary.Id, cancellation);
+        // Try the Windows readings for all connected endpoints before falling back to GATT.
+        foreach (var endpoint in connectedEndpoints)
+            if (endpoint.Address is not null && driverBatteries.TryGetValue((endpoint.Transport, endpoint.Address), out var level))
+                return DeviceReading.Connected(id, name, primary.Transport, level);
 
-        return DeviceReading.Connected(id, name, primary.Transport, percent);
+        foreach (var endpoint in connectedEndpoints.Where(e => e.Transport == Transport.BluetoothLE))
+            if (await ReadGattBatteryAsync(endpoint.Id, cancellation) is int level)
+                return DeviceReading.Connected(id, name, primary.Transport, level);
+
+        return DeviceReading.Connected(id, name, primary.Transport, null);
     }
 
     async Task<int?> ReadGattBatteryAsync(string endpointId, CancellationToken cancellation)
