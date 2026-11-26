@@ -8,7 +8,7 @@ namespace ChargeHub.Sources;
 /// ROG Gladius III Wireless AimPoint over its 2.4 GHz receiver (0B05:1A72) or the USB cable
 /// (0B05:1A70). A receiver alone is not proof that the mouse is awake: a silent mouse is
 /// reported as asleep, and the last known percentage is kept by <see cref="DeviceBook"/>.
-/// Bluetooth mode is covered by <see cref="BluetoothSource"/> under the same device id.
+/// Bluetooth mode is covered by <see cref="BluetoothSource"/> as a separate device entry.
 /// </summary>
 internal sealed class AsusGladiusSource : IBatterySource
 {
@@ -19,7 +19,7 @@ internal sealed class AsusGladiusSource : IBatterySource
     static readonly TimeSpan ResponseTimeout = TimeSpan.FromMilliseconds(1500);
     const int MaxReadsPerQuery = 4;
 
-    bool seenThisSession;
+    readonly HashSet<Transport> seenTransports = [];
     string? lastError;
 
     public string Name => "ASUS";
@@ -33,26 +33,33 @@ internal sealed class AsusGladiusSource : IBatterySource
         var paths = interfaces
             .Where(i => i.IsEnabled && AsusProtocol.IsSupportedInterface(i.Id))
             .Select(i => i.Id)
-            .OrderByDescending(AsusProtocol.IsWired) // the cable is the more reliable path
-            .ToArray();
+            .ToLookup(path => AsusProtocol.IsWired(path) ? Transport.Usb : Transport.Dongle);
 
-        if (paths.Length == 0)
-            return seenThisSession ? [DeviceReading.Disconnected(Id, DeviceName, Transport.Dongle)] : [];
-        seenThisSession = true;
-
-        DeviceReading? best = null;
-        foreach (var path in paths)
+        var readings = new List<DeviceReading>();
+        foreach (var transport in new[] { Transport.Usb, Transport.Dongle })
         {
-            var reading = await QueryAsync(path, cancellation);
-            if (reading.Link == LinkStatus.Connected) return [reading];
-            if (best is null || reading.Link > best.Link) best = reading;
+            DeviceReading? best = null;
+            foreach (var path in paths[transport])
+            {
+                var reading = await QueryAsync(path, transport, cancellation);
+                if (best is null || reading.Link > best.Link) best = reading;
+                if (reading.Link == LinkStatus.Connected) break;
+            }
+            if (best is not null)
+            {
+                seenTransports.Add(transport);
+                readings.Add(best);
+            }
+            else if (seenTransports.Contains(transport))
+                readings.Add(DeviceReading.Disconnected(DeviceId(transport), DeviceName, transport));
         }
-        return [best!];
+        return readings;
     }
 
-    async Task<DeviceReading> QueryAsync(string path, CancellationToken cancellation)
+    static string DeviceId(Transport transport) => $"{Id}:{transport}";
+
+    async Task<DeviceReading> QueryAsync(string path, Transport transport, CancellationToken cancellation)
     {
-        var transport = AsusProtocol.IsWired(path) ? Transport.Usb : Transport.Dongle;
         try
         {
             using var hid = HidInterface.Open(path);
@@ -72,18 +79,18 @@ internal sealed class AsusGladiusSource : IBatterySource
                 {
                     case AsusResponseKind.Battery:
                         lastError = null;
-                        return DeviceReading.Connected(Id, DeviceName, transport, response.Percent, response.Charging);
+                        return DeviceReading.Connected(DeviceId(transport), DeviceName, transport, response.Percent, response.Charging);
                     case AsusResponseKind.Asleep:
                         lastError = null;
-                        return DeviceReading.Asleep(Id, DeviceName, transport);
+                        return DeviceReading.Asleep(DeviceId(transport), DeviceName, transport);
                 }
             }
-            return DeviceReading.Asleep(Id, DeviceName, transport);
+            return DeviceReading.Asleep(DeviceId(transport), DeviceName, transport);
         }
         catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
         {
             // The receiver is there but the mouse did not answer in time: it is asleep or out of range.
-            return DeviceReading.Asleep(Id, DeviceName, transport);
+            return DeviceReading.Asleep(DeviceId(transport), DeviceName, transport);
         }
         catch (Win32Exception e)
         {
@@ -103,6 +110,6 @@ internal sealed class AsusGladiusSource : IBatterySource
             lastError = reason;
             Log.Error($"ASUS HID query failed: {reason}", error);
         }
-        return DeviceReading.Unavailable(Id, DeviceName, transport);
+        return DeviceReading.Unavailable(DeviceId(transport), DeviceName, transport);
     }
 }

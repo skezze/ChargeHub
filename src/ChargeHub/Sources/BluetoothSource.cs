@@ -8,8 +8,8 @@ namespace ChargeHub.Sources;
 
 /// <summary>
 /// Paired Bluetooth Classic and Bluetooth LE devices. Each poll enumerates the paired
-/// devices and reads batteries of the connected ones: the standard GATT Battery Service
-/// for LE, the Windows driver battery property otherwise. DeviceWatchers are used only to
+/// devices and reads batteries of the connected ones: the Windows driver battery property
+/// first, with the standard GATT Battery Service as a fallback for LE. DeviceWatchers are used only to
 /// notice connect/disconnect events early; they carry no state the poll depends on.
 /// </summary>
 internal sealed class BluetoothSource : IBatterySource, IDisposable
@@ -21,7 +21,7 @@ internal sealed class BluetoothSource : IBatterySource, IDisposable
 
     sealed record Endpoint(string Id, string Name, string? Address, bool Connected, Transport Transport)
     {
-        public string Key => Address is { Length: > 0 } ? "bt:" + Address : "bt-id:" + Id;
+        public string Key => $"bt:{Transport}:{Address ?? Id}";
     }
 
     sealed class WatcherTracker
@@ -101,7 +101,7 @@ internal sealed class BluetoothSource : IBatterySource, IDisposable
             ? await Task.Run(BluetoothPnpBattery.ReadAll, cancellation)
             : [];
 
-        // Classic and LE records of one physical device share an address.
+        // Deduplicate within a transport, not across Classic and LE.
         var devices = endpoints.GroupBy(e => e.Key).Select(group => ReadDeviceAsync(group.ToArray(), driverBatteries, cancellation));
         return await Task.WhenAll(devices);
     }
@@ -113,25 +113,32 @@ internal sealed class BluetoothSource : IBatterySource, IDisposable
             info.Id,
             string.IsNullOrWhiteSpace(info.Name) ? "Bluetooth device" : info.Name,
             info.Properties.TryGetValue(AddressKey, out var address) && address is string text && text.Length > 0
-                ? text.Replace(":", "").ToUpperInvariant() : null,
+                ? NormalizeAddress(text) : null,
             IsConnected(info.Properties) ?? false,
             transport));
     }
 
-    async Task<DeviceReading> ReadDeviceAsync(Endpoint[] group, Dictionary<string, int> driverBatteries, CancellationToken cancellation)
+    internal static string? NormalizeAddress(string text)
+    {
+        var address = text.Replace(":", "").Replace("-", "").Trim();
+        return address.Length == 12 && address.All(Uri.IsHexDigit) ? address.ToUpperInvariant() : null;
+    }
+
+    async Task<DeviceReading> ReadDeviceAsync(Endpoint[] group, Dictionary<(Transport, string), int> driverBatteries, CancellationToken cancellation)
     {
         var connectedEndpoints = group.Where(e => e.Connected).ToArray();
         var primary = connectedEndpoints.FirstOrDefault() ?? group[0];
         string name = group.Select(e => e.Name).FirstOrDefault(n => n != "Bluetooth device") ?? primary.Name;
-        string id = KnownDevices.IsGladiusIiiAimpoint(name) ? KnownDevices.GladiusIiiAimpointId : primary.Key;
+        string id = primary.Key;
 
         if (connectedEndpoints.Length == 0)
             return DeviceReading.Disconnected(id, name, primary.Transport);
 
         int? percent = null;
-        var lowEnergy = connectedEndpoints.FirstOrDefault(e => e.Transport == Transport.BluetoothLE);
-        if (lowEnergy is not null) percent = await ReadGattBatteryAsync(lowEnergy.Id, cancellation);
-        if (percent is null && primary.Address is not null && driverBatteries.TryGetValue(primary.Address, out var level)) percent = level;
+        if (primary.Address is not null && driverBatteries.TryGetValue((primary.Transport, primary.Address), out var level))
+            percent = level;
+        else if (primary.Transport == Transport.BluetoothLE)
+            percent = await ReadGattBatteryAsync(primary.Id, cancellation);
 
         return DeviceReading.Connected(id, name, primary.Transport, percent);
     }

@@ -71,13 +71,13 @@ Polling: one background loop, one poll at a time. It runs at the configured inte
 
 ### Adding a device
 
-Implement `IBatterySource` (return a `DeviceReading` per device using the `Connected` / `Asleep` / `Disconnected` / `Unavailable` factories), then add it to the list in `TrayApp`. If the same physical device is also reachable through another source, give both the same id (see `KnownDevices`) and they are merged into one.
+Implement `IBatterySource` (return a `DeviceReading` per device using the `Connected` / `Asleep` / `Disconnected` / `Unavailable` factories), then add it to the list in `TrayApp`. Use the same id only for duplicate readings of the same device on the same transport. Bluetooth uses the normalized address when Windows provides it, and keeps Classic and LE entries separate.
 
 ## Device notes
 
 - **Bluetooth LE**: standard Battery Service (`0x180F` / `0x2A19`) read while connected. Devices without the service are probed once, not every minute.
 - **Bluetooth Classic and others**: the battery property Windows' driver publishes for the device (`DEVPKEY_Bluetooth_Battery`), only while connected. Not every device exposes one; then you get `–`.
-- **ASUS Gladius III Wireless AimPoint**: only the read-only battery query (`00 12 07`, 65-byte HID reports, interface `MI_00`) is sent. A 1.5 s deadline per query; no DPI, RGB, firmware or profile settings are touched. In Bluetooth mode the mouse is found by the Bluetooth source under the same id. OMNI/Booster receivers and other ASUS models need their own implementation.
+- **ASUS Gladius III Wireless AimPoint**: only the read-only battery query (`00 12 07`, 65-byte HID reports, interface `MI_00`) is sent. A 1.5 s deadline per query; no DPI, RGB, firmware or profile settings are touched. USB, 2.4 GHz and Bluetooth are listed separately. OMNI/Booster receivers and other ASUS models need their own implementation.
 
 ## Build
 

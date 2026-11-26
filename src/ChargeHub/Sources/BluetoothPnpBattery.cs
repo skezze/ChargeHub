@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using ChargeHub.Core;
 
 namespace ChargeHub.Sources;
 
@@ -16,16 +17,17 @@ internal static partial class BluetoothPnpBattery
     static readonly IntPtr InvalidHandle = new(-1);
     static readonly Guid BatteryKeyFormat = new("104ea319-6ee2-4701-bd47-8ddbf425bbe5");
 
-    /// <summary>Battery percentages of present Bluetooth device nodes, keyed by upper-case address without separators.</summary>
-    public static Dictionary<string, int> ReadAll()
+    /// <summary>Battery percentages keyed by transport and upper-case address without separators.</summary>
+    public static Dictionary<(Transport, string), int> ReadAll()
     {
-        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var enumerator in new[] { "BTHENUM", "BTHLE" })
-            ReadEnumerator(enumerator, result);
+        var result = new Dictionary<(Transport, string), int>();
+        ReadEnumerator("BTHENUM", Transport.Bluetooth, result);
+        ReadEnumerator("BTHLE", Transport.BluetoothLE, result);
+        ReadEnumerator("BTHLEDEVICE", Transport.BluetoothLE, result);
         return result;
     }
 
-    static void ReadEnumerator(string enumerator, Dictionary<string, int> result)
+    static void ReadEnumerator(string enumerator, Transport transport, Dictionary<(Transport, string), int> result)
     {
         var set = SetupDiGetClassDevsW(IntPtr.Zero, enumerator, IntPtr.Zero, DigcfAllClasses | DigcfPresent);
         if (set == InvalidHandle) return;
@@ -48,7 +50,13 @@ internal static partial class BluetoothPnpBattery
                 instanceId.Clear();
                 if (!SetupDiGetDeviceInstanceIdW(set, ref info, instanceId, (uint)instanceId.Capacity, out _)) continue;
                 var match = AddressInInstanceId().Match(instanceId.ToString());
-                if (match.Success) result[match.Groups[1].Value] = level;
+                if (!match.Success) continue;
+                var device = (transport, match.Groups[1].Value.ToUpperInvariant());
+                // Prefer the remote device node over a profile/service child when both report charge.
+                if (instanceId.ToString().StartsWith(enumerator + @"\DEV_", StringComparison.OrdinalIgnoreCase))
+                    result[device] = level;
+                else
+                    result.TryAdd(device, level);
             }
         }
         finally { SetupDiDestroyDeviceInfoList(set); }
